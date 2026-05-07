@@ -1,8 +1,102 @@
-<html>
+<!DOCTYPE html>
+<html lang="ko">
 <head>
-    <h1>테스트중</h1>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>원두 재고 현황</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, sans-serif; background: #f5f5f5; padding: 2rem; color: #1a1a1a; }
+    .container { max-width: 700px; margin: 0 auto; }
+    .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; }
+    h1 { font-size: 20px; font-weight: 600; }
+    .sub { font-size: 13px; color: #888; margin-top: 3px; }
+    button { background: white; border: 1px solid #ddd; border-radius: 8px; padding: 7px 14px; font-size: 13px; cursor: pointer; }
+    button:hover { background: #f0f0f0; }
+    .summary { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 1.5rem; }
+    .card { background: white; border-radius: 10px; padding: 1rem; border: 1px solid #eee; }
+    .card-label { font-size: 12px; color: #888; margin-bottom: 4px; }
+    .card-val { font-size: 22px; font-weight: 600; }
+    .table-wrap { background: white; border-radius: 10px; border: 1px solid #eee; overflow: hidden; }
+    table { width: 100%; border-collapse: collapse; font-size: 14px; }
+    thead { background: #fafafa; }
+    th { padding: 10px 16px; text-align: left; font-size: 13px; color: #666; border-bottom: 1px solid #eee; }
+    td { padding: 12px 16px; border-bottom: 1px solid #f0f0f0; }
+    tr:last-child td { border-bottom: none; }
+    .bar-bg { background: #f0f0f0; border-radius: 4px; height: 8px; }
+    .bar-fill { height: 8px; border-radius: 4px; }
+    .badge { display: inline-block; font-size: 11px; padding: 3px 8px; border-radius: 6px; font-weight: 500; }
+    .loading { text-align: center; padding: 3rem; color: #888; }
+    .error { text-align: center; padding: 2rem; color: #c00; background: #fff0f0; border-radius: 8px; margin: 1rem; }
+    .last-update { font-size: 12px; color: #aaa; text-align: right; margin-top: 8px; }
+  </style>
 </head>
 <body>
-안녕하세요
+<div class="container">
+  <div class="header">
+    <div>
+      <h1>☕ 원두 재고 현황</h1>
+      <div class="sub">Google Sheets 실시간 연동</div>
+    </div>
+    <button onclick="loadData()">↻ 새로고침</button>
+  </div>
+
+  <div class="summary">
+    <div class="card"><div class="card-label">총 품목 수</div><div class="card-val" id="total-items">—</div></div>
+    <div class="card"><div class="card-label">총 재고량</div><div class="card-val" id="total-count">—</div></div>
+    <div class="card"><div class="card-label">평균 재고</div><div class="card-val" id="avg-count">—</div></div>
+  </div>
+
+  <div class="table-wrap">
+    <div id="table-body"><div class="loading">불러오는 중...</div></div>
+  </div>
+  <div class="last-update" id="last-update"></div>
+</div>
+
+<script>
+const API = "https://script.google.com/macros/s/AKfycbwl9w1bxarht-AVqNpDsneUfyzyIZCZBdJMNG5tepII4gYHDkmClpxJ80FauZWIVVs_/exec";
+
+function barColor(p) { return p >= 60 ? "#1D9E75" : p >= 30 ? "#EF9F27" : "#E24B4A"; }
+function badge(p) {
+  if (p >= 60) return `<span class="badge" style="background:#E1F5EE;color:#0F6E56">충분</span>`;
+  if (p >= 30) return `<span class="badge" style="background:#FAEEDA;color:#854F0B">보통</span>`;
+  return `<span class="badge" style="background:#FCEBEB;color:#A32D2D">부족</span>`;
+}
+
+async function loadData() {
+  try {
+    const res = await fetch(API);
+    const data = await res.json();
+    const counts = data.map(d => Number(d.count) || 0);
+    const total = counts.reduce((a, b) => a + b, 0);
+    const max = Math.max(...counts);
+
+    document.getElementById("total-items").textContent = data.length + " 종";
+    document.getElementById("total-count").textContent = total.toLocaleString() + " 개";
+    document.getElementById("avg-count").textContent = Math.round(total / data.length).toLocaleString() + " 개";
+
+    const rows = data.map(item => {
+      const cnt = Number(item.count) || 0;
+      const pct = max > 0 ? Math.round(cnt / max * 100) : 0;
+      return `<tr>
+        <td><strong>${item.name}</strong></td>
+        <td>${cnt.toLocaleString()} 개</td>
+        <td><div class="bar-bg"><div class="bar-fill" style="width:${pct}%;background:${barColor(pct)}"></div></div></td>
+        <td>${badge(pct)}</td>
+      </tr>`;
+    }).join("");
+
+    document.getElementById("table-body").innerHTML = `
+      <table>
+        <thead><tr><th>품목명</th><th>재고량</th><th>비율</th><th>상태</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>`;
+    document.getElementById("last-update").textContent = "마지막 업데이트: " + new Date().toLocaleTimeString("ko-KR");
+  } catch(e) {
+    document.getElementById("table-body").innerHTML = `<div class="error">데이터 로딩 실패. Apps Script 배포 설정을 확인해주세요.</div>`;
+  }
+}
+loadData();
+</script>
 </body>
 </html>
